@@ -66,20 +66,34 @@ def matching(matching_dict_person_bag, person_center_dict, bag_center_dict):
 # 유실 추적 함수
 def lost_tracking(lost_things, matching_dict_person_bag, person_center_dict, bag_center_dict):
     for person_id, bag_id in matching_dict_person_bag.items():
-        if person_id not in person_center_dict.keys():
-            if bag_id in bag_center_dict.keys():
-                lost_things[person_id] = {'bag_id': bag_id, 'lost': True}
-                print("\n유실물 발생 : bag_id : ", bag_id)
+        if person_id not in person_center_dict:
+            if bag_id in bag_center_dict:
+                if person_id in lost_things:
+                    lost_things[person_id]['lost_frame_count'] += 1
+                    if lost_things[person_id]['lost_frame_count'] >= 100:
+                        if not lost_things[person_id]['lost']:
+                            print("\n유실물 발생 : bag_id : ", bag_id)
+                            lost_things[person_id]['lost'] = True
+                else:
+                    lost_things[person_id] = {'bag_id': bag_id, 'lost_frame_count': 1, 'lost': False}
+        else:
+            if person_id in lost_things:
+                lost_things[person_id]['lost_frame_count'] = 0
+                lost_things[person_id]['lost'] = False
 
     return lost_things
 
 # 유실 업데이트 함수
 def lost_update(person_center_dict, bag_center_dict, lost_things):
     for person_id, person_center in person_center_dict.items():
-        lost_things[person_id] = {'bbox': person_center, 'class': 'person', 'lost': False}
+        if person_id in lost_things:
+            lost_things[person_id]['bbox'] = person_center
+            lost_things[person_id]['class'] = 'person'
+        else:
+            lost_things[person_id] = {'bbox': person_center, 'class': 'person', 'lost_frame_count': 0, 'lost': False}
     for bag_id, bag_center in bag_center_dict.items():
-        if bag_id not in lost_things or not lost_things[bag_id]['lost']:
-            lost_things[bag_id] = {'bbox': bag_center, 'class': 'suitcase', 'lost': False}
+        if bag_id not in lost_things:
+            lost_things[bag_id] = {'bbox': bag_center, 'class': 'suitcase', 'lost_frame_count': 0, 'lost': False}
 
     return lost_things
 
@@ -148,18 +162,15 @@ def run(args):
 
     yolo.predictor.custom_args = args
 
-    # 프로젝트 폴더가 없으면 생성
-    if not Path(args.project).exists():
-        Path(args.project).mkdir(parents=True, exist_ok=True)
-
     # VideoWriter 초기화
-    video_path = Path(args.project) / f"{args.name}.mp4"
+    video_path = Path(args.project) / args.name / f"{args.name}.mp4"
     video_writer = None
 
     matching_dict_person_bag = {}
     lost_things = {}
 
     frame_idx = 0  # 프레임 인덱스 초기화
+
     for r in results:
         img = yolo.predictor.trackers[0].plot_results(r.orig_img, args.show_trajectories)
 
