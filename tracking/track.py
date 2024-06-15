@@ -10,6 +10,9 @@ from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS
 from boxmot.utils.checks import TestRequirements
 from tracking.detectors import get_yolo_inferer
 from transformers import BlipProcessor, BlipForConditionalGeneration
+from sklearn.cluster import KMeans
+from collections import Counter
+import re
 
 __tr = TestRequirements()
 __tr.check_packages(('ultralytics @ git+https://github.com/mikel-brostrom/ultralytics.git', ))  # install
@@ -23,6 +26,34 @@ import os
 # BLIP 모델과 프로세서 초기화
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+
+# 주요 색상 인식 함수
+def get_dominant_color(image, k=4):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = image.reshape((-1, 3))
+    clt = KMeans(n_clusters=k)
+    clt.fit(image)
+    hist = Counter(clt.labels_)
+    dominant_color = clt.cluster_centers_[hist.most_common(1)[0][0]]
+    return tuple(map(int, dominant_color))
+
+def color_name(rgb_color):
+    colors = {
+        "red": (255, 0, 0),
+        "green": (0, 255, 0),
+        "blue": (0, 0, 255),
+        "black": (0, 0, 0),
+        "white": (255, 255, 255),
+        "yellow": (255, 255, 0),
+        "cyan": (0, 255, 255),
+        "magenta": (255, 0, 255),
+        "mint": (170, 255, 170)  # mint color
+    }
+    color_diffs = []
+    for color_name, color_rgb in colors.items():
+        diff = np.linalg.norm(np.array(rgb_color) - np.array(color_rgb))
+        color_diffs.append((diff, color_name))
+    return min(color_diffs)[1]
 
 # 사람 중심 좌표 계산 함수
 def get_person_center(bboxes):
@@ -114,10 +145,23 @@ def capture_lost_item_image(img, bbox):
     lost_item_image = img[y1:y2, x1:x2]
     return lost_item_image
 
+def capture_lost_item_image_right_half(img, bbox):
+    x1, y1, x2, y2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+    mid_x = (x1 + x2) // 2
+    lost_item_image = img[y1:y2, mid_x:x2]
+    return lost_item_image
+
 def generate_description(image):
     inputs = processor(images=image, return_tensors="pt")
     out = model.generate(**inputs)
     description = processor.decode(out[0], skip_special_tokens=True)
+    return description
+
+def remove_adjectives_before_item(description):
+    pattern = r'(\b(?:red|green|blue|black|white|yellow|cyan|magenta|mint)\b\s*)?(handbag|backpack|suitcase)'
+    match = re.search(pattern, description)
+    if match:
+        return description[match.start(2):]
     return description
 
 def draw_text(img, text, position):
@@ -249,8 +293,16 @@ def run(args):
                     if int(box.id.item()) == bag_id:
                         bag_bbox = box.xyxy[0].cpu().numpy()
                         lost_item_image = capture_lost_item_image(img, bag_bbox)
+                        right_half_image = capture_lost_item_image_right_half(img, bag_bbox)
+                        dominant_color = get_dominant_color(right_half_image)
+                        color_name_text = color_name(dominant_color)
                         description = generate_description(lost_item_image)
-                        draw_text(img, description, (int(bag_bbox[0]), int(bag_bbox[1]) - 10))
+                        description_cleaned = remove_adjectives_before_item(description)
+
+                        # 특정 키워드가 포함된 경우에만 텍스트를 표시
+                        if any(keyword in description_cleaned for keyword in ["handbag", "backpack", "suitcase"]):
+                            final_description = f"{color_name_text} {description_cleaned}"
+                            draw_text(img, final_description, (int(bag_bbox[0]), int(bag_bbox[1]) - 10))
 
         # VideoWriter 초기화
         if video_writer is None:
