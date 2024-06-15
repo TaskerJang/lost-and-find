@@ -9,6 +9,7 @@ from boxmot.tracker_zoo import create_tracker
 from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS
 from boxmot.utils.checks import TestRequirements
 from tracking.detectors import get_yolo_inferer
+from transformers import BlipProcessor, BlipForConditionalGeneration
 
 __tr = TestRequirements()
 __tr.check_packages(('ultralytics @ git+https://github.com/mikel-brostrom/ultralytics.git', ))  # install
@@ -17,7 +18,11 @@ from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
 from ultralytics.data.utils import VID_FORMATS
 from ultralytics.utils.plotting import save_one_box
-import os  # 추가
+import os
+
+# BLIP 모델과 프로세서 초기화
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 
 # 사람 중심 좌표 계산 함수
 def get_person_center(bboxes):
@@ -65,37 +70,62 @@ def matching(matching_dict_person_bag, person_center_dict, bag_center_dict):
 
 # 유실 추적 함수
 def lost_tracking(lost_things, matching_dict_person_bag, person_center_dict, bag_center_dict):
+    updated_lost_things = lost_things.copy()  # 기존 유실 목록을 복사
+
     for person_id, bag_id in matching_dict_person_bag.items():
         if person_id not in person_center_dict:
             if bag_id in bag_center_dict:
-                if person_id in lost_things:
-                    lost_things[person_id]['lost_frame_count'] += 1
-                    if lost_things[person_id]['lost_frame_count'] >= 100:
-                        if not lost_things[person_id]['lost']:
+                if person_id in updated_lost_things:
+                    updated_lost_things[person_id]['lost_frame_count'] += 1
+                    if updated_lost_things[person_id]['lost_frame_count'] >= 10:  # 유실 조건을 만족하는 프레임 수
+                        if not updated_lost_things[person_id]['lost']:
                             print("\n유실물 발생 : bag_id : ", bag_id)
-                            lost_things[person_id]['lost'] = True
+                            updated_lost_things[person_id]['lost'] = True
+                            updated_lost_things[person_id]['bag_id'] = bag_id  # 유실된 가방 ID 설정
                 else:
-                    lost_things[person_id] = {'bag_id': bag_id, 'lost_frame_count': 1, 'lost': False}
+                    updated_lost_things[person_id] = {'bag_id': bag_id, 'lost_frame_count': 1, 'lost': False}
         else:
-            if person_id in lost_things:
-                lost_things[person_id]['lost_frame_count'] = 0
-                lost_things[person_id]['lost'] = False
+            if person_id in updated_lost_things:
+                updated_lost_things[person_id]['lost_frame_count'] = 0
+                updated_lost_things[person_id]['lost'] = False
 
-    return lost_things
+    return updated_lost_things
 
 # 유실 업데이트 함수
 def lost_update(person_center_dict, bag_center_dict, lost_things):
-    for person_id, person_center in person_center_dict.items():
-        if person_id in lost_things:
-            lost_things[person_id]['bbox'] = person_center
-            lost_things[person_id]['class'] = 'person'
-        else:
-            lost_things[person_id] = {'bbox': person_center, 'class': 'person', 'lost_frame_count': 0, 'lost': False}
-    for bag_id, bag_center in bag_center_dict.items():
-        if bag_id not in lost_things:
-            lost_things[bag_id] = {'bbox': bag_center, 'class': 'suitcase', 'lost_frame_count': 0, 'lost': False}
+    updated_lost_things = lost_things.copy()  # 기존 유실 목록을 복사
 
-    return lost_things
+    for person_id, person_center in person_center_dict.items():
+        if person_id in updated_lost_things:
+            updated_lost_things[person_id]['bbox'] = person_center
+            updated_lost_things[person_id]['class'] = 'person'
+        else:
+            updated_lost_things[person_id] = {'bbox': person_center, 'class': 'person', 'lost_frame_count': 0, 'lost': False}
+    for bag_id, bag_center in bag_center_dict.items():
+        if bag_id not in updated_lost_things:
+            updated_lost_things[bag_id] = {'bbox': bag_center, 'class': 'suitcase', 'lost_frame_count': 0, 'lost': False}
+        else:
+            updated_lost_things[bag_id]['bbox'] = bag_center  # Ensure bbox is updated for lost items
+
+    return updated_lost_things
+
+def capture_lost_item_image(img, bbox):
+    x1, y1, x2, y2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+    lost_item_image = img[y1:y2, x1:x2]
+    return lost_item_image
+
+def generate_description(image):
+    inputs = processor(images=image, return_tensors="pt")
+    out = model.generate(**inputs)
+    description = processor.decode(out[0], skip_special_tokens=True)
+    return description
+
+def draw_text(img, text, position):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    color = (255, 0, 0)
+    thickness = 2
+    cv2.putText(img, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
 
 def on_predict_start(predictor, persist=False):
     assert predictor.custom_args.tracking_method in TRACKERS, \
@@ -162,9 +192,14 @@ def run(args):
 
     yolo.predictor.custom_args = args
 
-    # VideoWriter 초기화
-    video_path = Path(args.project) / args.name / f"{args.name}.mp4"
+    # 프로젝트 경로와 이름을 사용하여 비디오 저장 경로 설정
+    project_path = Path(args.project) / args.name
+    video_path = project_path / f"{args.name}.mp4"
     video_writer = None
+
+    # 프로젝트 경로가 존재하지 않으면 생성
+    if not project_path.exists():
+        project_path.mkdir(parents=True, exist_ok=True)
 
     matching_dict_person_bag = {}
     lost_things = {}
@@ -206,8 +241,16 @@ def run(args):
             else:
                 print(f"Skipping line: Person ID {person_id} or Bag ID {bag_id} not found in current frame")
 
-        # img 객체 저장해보기 (디버깅용)
-        #cv2.imwrite(f'debug_frame_{frame_idx}.jpg', img)
+        # 유실물 발생 시 이미지 캡처 및 텍스트 생성
+        for person_id, info in lost_things.items():
+            if info['lost'] and 'bag_id' in info:
+                bag_id = info['bag_id']
+                for box in bag_bboxes:
+                    if int(box.id.item()) == bag_id:
+                        bag_bbox = box.xyxy[0].cpu().numpy()
+                        lost_item_image = capture_lost_item_image(img, bag_bbox)
+                        description = generate_description(lost_item_image)
+                        draw_text(img, description, (int(bag_bbox[0]), int(bag_bbox[1]) - 10))
 
         # VideoWriter 초기화
         if video_writer is None:
