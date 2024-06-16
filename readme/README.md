@@ -1,6 +1,6 @@
 ![img_1.png](img_1.png)
 
-### 🛠️ ALF: Automated Lost & Find
+## 🛠️ ALF: Automated Lost & Find
 
 ### 📹 실시간 CCTV 데이터를 활용하여 즉각적인 알림을 통해
 ### 🚨 효율적으로 유실물을 방지하는 솔루션
@@ -68,6 +68,7 @@
 - [🎥 XMEM - 메모리 기반 영상 객체 추적 모델로, 일관된 추적 결과를 제공.](https://velog.io/@tasker_dev/XMEM)  
   <br>
 - [🎨 SAM - 세그멘테이션 애니메이션 모델로, 이미지 및 비디오에서 객체의 경계를 식별.](https://velog.io/@tasker_dev/SAM)
+
 # 💡 피드백
 **실패는 우리를 성장시킨다** 💪
 
@@ -124,7 +125,7 @@ poetry install --with yolo
 poetry shell
 ```
 
-#### 4단계: Tracking 예제 실행
+#### 3단계: 예제 실행
 ```sh
 # Tracking 예제 실행
 python tracking/track.py --yolo-model best3_yolov8.pt --reid-model osnet_x0_25_msmt17.pt --source <video path> --save --project "project_path" --name "output_file_name" --conf 0.84
