@@ -93,10 +93,13 @@
   <br>
 - [BLIP 모델의 색상 인식 이슈 해결하는 방법](https://velog.io/@tasker_dev/%EC%9D%B4%EB%AF%B8%EC%A7%80-%EC%BA%A1%EC%85%94%EB%8B%9D%EC%97%90%EC%84%9C-%EC%83%89%EC%83%81%EC%9D%84-%ED%8C%90%EB%8B%A8%ED%95%98%EB%8A%94-%EA%B2%83%EC%9D%B4-%EC%A4%91%EC%9A%94%ED%95%9C-%EC%9D%B4%EC%8A%88%EC%9D%B8-%EC%9D%B4%EC%9C%A0)
 
-다음은 프로젝트 시작 방법에 대한 수정된 가이드입니다. `requirements.txt` 파일을 포함한 의존성 설치 방법도 포함되어 있습니다.
 
 # 🚀 구동 방법
 **프로젝트를 시작하는 방법** 🔧
+
+### 코랩 주소!!!
+
+`https://drive.google.com/drive/folders/1b8y9NuPfR_xZobZGqVB7pAOwRYeKWttf?usp=drive_link`
 
 ### 1단계: Conda 가상환경 만들기
 Python 3.8 이상으로 Conda 가상환경을 만듭니다. Anaconda 또는 Miniconda가 설치되어 있어야 합니다.

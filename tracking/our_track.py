@@ -1,38 +1,33 @@
-# 35~189번 함수 선언 작성함
-# run 함수 내부의 257번부터 작성한 코드
+import sys
+from pathlib import Path
+
+# 'tracking' 모듈 경로를 시스템 경로에 추가합니다.
+tracking_path = Path("K:/lost-and-find/tracking")
+sys.path.append(str(tracking_path))
+
+from tracking.detectors import get_yolo_inferer
+
 import argparse
 import cv2
 import numpy as np
 from functools import partial
-from pathlib import Path
-
 import torch
-
-from boxmot import TRACKERS
-from boxmot.tracker_zoo import create_tracker
-from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS
-from boxmot.utils.checks import TestRequirements
-from tracking.detectors import get_yolo_inferer
-
-### 추가한 라이브러리 ###
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from sklearn.cluster import KMeans
 from collections import Counter
 import re
 from deep_translator import GoogleTranslator
-### 추가한 라이브러리 ###
+from ultralytics import YOLO
+
+from boxmot import TRACKERS
+from boxmot.tracker_zoo import create_tracker
+from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS
+from boxmot.utils.checks import TestRequirements
 
 __tr = TestRequirements()
 __tr.check_packages(('ultralytics @ git+https://github.com/mikel-brostrom/ultralytics.git', ))  # install
 
-from ultralytics import YOLO
-from ultralytics.utils.plotting import Annotator, colors
-from ultralytics.data.utils import VID_FORMATS
-from ultralytics.utils.plotting import save_one_box
 
-import os # 추가
-
-### 35~189번 줄까지 만든 코드
 # BLIP 모델과 프로세서 초기화
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
@@ -186,7 +181,6 @@ def draw_text(img, text, position):
     color = (255, 0, 0)
     thickness = 2
     cv2.putText(img, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
-### 35~189번 줄까지 만든 코드
 
 def on_predict_start(predictor, persist=False):
     assert predictor.custom_args.tracking_method in TRACKERS, \
@@ -255,7 +249,6 @@ def run(args):
     # store custom args in predictor
     yolo.predictor.custom_args = args
 
-    # 이하 작성한 코드
     # 프로젝트 경로와 이름을 사용하여 비디오 저장 경로 설정
     project_path = Path(args.project) / args.name
     video_path = project_path / f"{args.name}.mp4"
@@ -273,14 +266,8 @@ def run(args):
     for r in results:
         img = yolo.predictor.trackers[0].plot_results(r.orig_img, args.show_trajectories)
 
-        # print("BBoxes:", r.boxes)
-        # print("Classes:", r.boxes.cls)
-
         person_bboxes = [r.boxes[i] for i in range(len(r.boxes)) if r.boxes.cls[i] == 1]  # 클래스 1: 사람
         bag_bboxes = [r.boxes[i] for i in range(len(r.boxes)) if r.boxes.cls[i] == 0]    # 클래스 0: 가방
-
-        # print(f"Person bboxes: {person_bboxes}")
-        # print(f"Bag bboxes: {bag_bboxes}")
 
         person_center_dict = get_person_center(person_bboxes)
         bag_center_dict = get_bag_center(bag_bboxes)
@@ -293,18 +280,11 @@ def run(args):
         print(f"Person centers: {person_center_dict}")       # 사람의 중심 좌표를 출력
         print(f"Bag centers: {bag_center_dict}")             # 가방의 중심 좌표를 출력
 
-        # cv2.line 그리기 전에 img 객체 확인
-        # print(f"img shape: {img.shape}, dtype: {img.dtype}")
-
         for person_id, bag_id in matching_dict_person_bag.items():
             if person_id in person_center_dict and bag_id in bag_center_dict:  # person_id와 bag_id가 각 딕셔너리에 있는지 확인
                 person_center = person_center_dict[person_id]
                 bag_center = bag_center_dict[bag_id]
-                # print(f"Drawing line: Person ID {person_id} at {person_center} to Bag ID {bag_id} at {bag_center}")
                 cv2.line(img, person_center, bag_center, (0, 255, 0), 2)
-            else:
-                # print(f"Skipping line: Person ID {person_id} or Bag ID {bag_id} not found in current frame")
-                pass
 
         # 유실물 발생 시 이미지 캡처 및 텍스트 생성
         for person_id, info in lost_things.items():
@@ -325,7 +305,7 @@ def run(args):
                             final_description = f"{color_name_text} {description_cleaned}"
                             draw_text(img, final_description, (int(bag_bbox[0]), int(bag_bbox[3]) + 10))
                             cv2.putText(img, "LOST", (int(bag_center[0]), int(bag_center[1])), 0, 2, (0, 0, 255), 2)
-                            
+
                             translated = GoogleTranslator(source='en', target='ko').translate(final_description) #한글로 번역
                             print("Description:", translated)
 
