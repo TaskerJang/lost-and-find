@@ -29,7 +29,6 @@ val_utils/
 # exports
 *_openvino_model
 *.torchscript
-*.pt
 *.pth
 *.onnx
 *.engine
