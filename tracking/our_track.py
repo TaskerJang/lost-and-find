@@ -1,8 +1,15 @@
 import sys
 from pathlib import Path
 
-# 'tracking' 모듈 경로를 시스템 경로에 추가합니다.
-tracking_path = Path("K:/lost-and-find/tracking")
+# 현재 스크립트 파일의 위치를 기준으로 'tracking' 모듈 경로를 시스템 경로에 추가합니다.
+current_dir = Path(__file__).resolve().parent
+tracking_path = current_dir.parent  # 상위 디렉토리를 추가
+
+# 경로 출력 (디버깅용)
+print(f"Current directory: {current_dir}")
+print(f"Tracking path: {tracking_path}")
+
+# 시스템 경로에 추가
 sys.path.append(str(tracking_path))
 
 from tracking.detectors import get_yolo_inferer
@@ -26,7 +33,6 @@ from boxmot.utils.checks import TestRequirements
 
 __tr = TestRequirements()
 __tr.check_packages(('ultralytics @ git+https://github.com/mikel-brostrom/ultralytics.git', ))  # install
-
 
 # BLIP 모델과 프로세서 초기화
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
