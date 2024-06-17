@@ -105,8 +105,8 @@ threadpoolctl==3.5.0
 tokenizers==0.19.1
 tomli==2.0.1
 tomlkit==0.12.5
-torch==2.2.2+cu121
-torchvision==0.17.2+cu121
+torch==2.2.2
+torchvision==0.17.2
 tqdm==4.66.4
 transformers==4.41.2
 trove-classifiers==2024.5.22

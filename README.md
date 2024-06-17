@@ -115,7 +115,7 @@ conda activate yolo_tracking_env
 git clone <레포지토리 주소>
 
 # 디렉토리 이동
-cd yolo_tracking
+cd lost-and-find
 
 # requirements.txt 파일을 사용하여 의존성 설치
 pip install -r requirements.txt
