@@ -120,8 +120,14 @@ git clone <레포지토리 주소>
 # 디렉토리 이동
 cd lost-and-find
 
-# requirements.txt 파일을 사용하여 의존성 설치
-pip install -r requirements.txt
+# poetry 설치
+pip install poetry
+
+# yolo 의존성 설치
+poetry install --with yolo
+
+# transformers 설치
+pip install transformers
 ```
 
 ### 3단계: 예제 실행

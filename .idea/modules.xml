@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/yolo_tracking.iml" filepath="$PROJECT_DIR$/.idea/yolo_tracking.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/lost-and-find.iml" filepath="$PROJECT_DIR$/.idea/lost-and-find.iml" />
     </modules>
   </component>
 </project>
