@@ -189,5 +189,6 @@ python tracking/our_track.py --yolo-model best3_yolov8.pt --reid-model osnet_x0_
 
 # 📸 6조
 
+![img.png](readme/img_3.png)
 
 ### 6조를 빛내준 팀원분들과 선동언 선생님, 류기곤 선생님, 유길상 교수님께 감사의 인사를 드립니다. 😊
